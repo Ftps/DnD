@@ -1,0 +1,29 @@
+6
+
+Name: Dwarf
+0 2, 1 -3, 2 2, 4 1, 5 -1
+Special: Gold Fingers
+
+Name: Halfling
+0 -2, 1 2, 2 -2, 5 3
+Special: Light Feet
+
+Name: Human
+0 1, 1 -2, 2 -2, 3 1, 4 2, 5 1
+Special: ????
+
+Name: Orc
+0 3, 2 2, 3 -1, 4 -1, 5 -2
+Special: Intimidate
+
+Name: High_Elf
+0 -1, 2 -3, 3 3, 4 2
+Special: Reinvigorate
+
+Name: Dark_Elf
+0 1, 1 2, 2 -1, 3 1, 4 1, 5 -2
+Special: Mind Whisper
+
+Name: Wood_Elf
+0 -2, 1 -2, 3 1, 4 3, 5 1
+Special: Natural Protection
