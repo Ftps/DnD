@@ -19,7 +19,7 @@
 #define X  0
 #define Y  1
 #define MAX_PLAYERS 8
-#define SELEC_MAX   15
+#define SELEC_MAX   16
 #define ITEMS       1
 #define WEP_AR      2
 #define NAME_SIZE   100
@@ -60,7 +60,7 @@
 #define FAST    0b000001000
 #define INVIS   0b000100000
 
-#define GOLD_START 15
+#define GOLD_START 30
 
 typedef struct ITEM{
     char name[NAME_SIZE+1];
@@ -171,11 +171,13 @@ void ac_change(GAME game);
 void change_item(PLAYER *pla, GAME game);
 void dice_roll();
 void add_warning(GAME game, int *count);
+void remove_warn(GAME game, int *count);
 
 void print_opt(int pos);
 void print_debuff(int pos);
 void print_buff(int pos);
 void print_stats(GAME game);
+void print_warnings(GAME game);
 
 void draw_dragon();
 

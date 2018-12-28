@@ -26,8 +26,8 @@ PLAYER* new_player_list(GAME game)
         getstr(aux->name);
 
         aux->kol = GOLD_START;
-        //aux->status = BLEED; aux->buff = aux->exp = 0;
-        aux->buff = aux->status = aux->exp = 0;
+        //aux->status = BLEED; aux->lvl = aux->buff = aux->exp = 0;
+        aux->lvl = aux->buff = aux->status = aux->exp = 0;
 
         for(int k = 0; k < STAT_NUMBER; k++){
             aux->stats[k] = 13-k;
@@ -763,6 +763,7 @@ void game_show()
         mvprintw(36, 0, "\nWhat to do now?\n");
         attroff(A_UNDERLINE);
         print_opt(k);
+        print_warnings(game);
         refresh();
         do{
             pos = getch();
@@ -806,6 +807,7 @@ void game_show()
                     case 12:{end = 0; break;}
                     case 13:{dice_roll(); break;}
                     case 14:{add_warning(game, &(game.warn_count)); break;}
+                    case 15:{remove_warn(game, &(game.warn_count)); break;}
                 }
                 save_game(game, 0);
                 break;
@@ -1767,7 +1769,7 @@ void list_inventory(GAME game)
 
 int end_round(GAME game, int *count)
 {
-    int h, k = 0;
+    int h, k = 0, c;
     STATUS *aux;
     INV *aux_i;
     ITEM *freed;
@@ -1873,16 +1875,17 @@ int end_round(GAME game, int *count)
     CLEAR
     h = 0;
     while(game.warning->next != NULL){
-        --game.warning->next->id;
-        if(!game.warning->next->id){
-            ++h;
+        c = 0;
+        if(game.warning->next->id == 1){
+            ++h; c = 1;
             printw("\nWARNING: %s", game.warning->next->name);
             freed = game.warning->next;
             game.warning->next = freed->next;
             free(freed);
             --*count;
         }
-        else game.warning = game.warning->next;
+        else if(game.warning->next->id > 1) --game.warning->next->id;
+        if(!c) game.warning = game.warning->next;
     }
     if(h){refresh(); WAIT}
     return k;
@@ -2108,8 +2111,6 @@ void add_warning(GAME game, int *count)
     ITEM *aux = (ITEM*)malloc(sizeof(ITEM));
     int end, pos, k, q[3] = {0};
 
-    aux->next = game.warning->next;
-
     CLEAR
     echo();
     printw("\nEnter your message: ");
@@ -2141,20 +2142,76 @@ void add_warning(GAME game, int *count)
     }while(end);
 
     aux->id = q[0]*100 + q[1]*10 + q[2];
-    if(!aux->id){
-        printw("\nOof\n");
-        WAIT
-        free(aux);
-        return;
+    ++*count;
+    while(game.warning->next != NULL){
+        if(game.warning->next->id > aux->id){
+            break;
+        }
+        else{
+            game.warning = game.warning->next;
+        }
     }
-    else{
-        ++*count;
-        game.warning->next = aux;
-    }
+
+    aux->next = game.warning->next;
+    game.warning->next = aux;
+
 }
 
+void remove_warn(GAME game, int *count)
+{
+    int end = 1, pos = 1, key;
+    ITEM *aux;
 
+    if(game.warning->next == NULL){
+        CLEAR
+        printw("\n No messages to erase.");
+        WAIT
+        return;
+    }
 
+    do{
+        CLEAR
+        aux = game.warning;
+        printw("\nChoose a message to remove:\n");
+        for(int i = 1; aux->next != NULL; ++i){
+            aux = aux->next;
+            if(i == pos) attron(A_UNDERLINE);
+            printw("\n%s", aux->name);
+            if(i == pos){attroff(A_UNDERLINE); printw(" <");}
+        }
+        printw("\n");
+        do{
+            key = getch();
+        }while(key != 10 && key != KEY_UP && key != KEY_DOWN && key != 27);
+
+        switch (key) {
+            case KEY_UP:{
+                if(pos == 1) pos = *count;
+                else --pos;
+                break;
+            }
+            case KEY_DOWN:{
+                if(pos == *count) pos = 1;
+                else ++pos;
+                break;
+            }
+            case 10:{
+                end = 0;
+                break;
+            }
+            case 27:{
+                return; break;
+            }
+        }
+    }while(end);
+
+    for(int i = 0; i < pos-1; ++i){
+        game.warning = game.warning->next;
+    }
+    aux = game.warning->next;
+    game.warning->next = aux->next;
+    free(aux);
+}
 
 
 void print_opt(int pos)
@@ -2203,9 +2260,11 @@ void print_opt(int pos)
     move(39, 30); printw("Roll dice");
     if(pos == 13){attroff(A_STANDOUT); printw(" <");}
     if(pos == 14) attron(A_STANDOUT);
-    move(40, 30); printw("Warn message");
+    move(40, 30); printw("Add message");
     if(pos == 14){attroff(A_STANDOUT); printw(" <");}
-    move(41, 30);
+    if(pos == 15) attron(A_STANDOUT);
+    move(41, 30); printw("Remove message");
+    if(pos == 15) attroff(A_STANDOUT);
 }
 
 void print_debuff(int pos)
@@ -2290,6 +2349,21 @@ void print_stats(GAME game)
     WAIT
 }
 
+void print_warnings(GAME game)
+{
+    ITEM *aux = game.warning;
+
+    move(37, 60);
+    attron(A_UNDERLINE);
+    printw("Messages:");
+    attroff(A_UNDERLINE);
+
+    for(int i = 39; aux->next != NULL && i < 58; ++i){
+        aux = aux->next;
+        move(i, 60);
+        printw("%s - rounds: %d", aux->name, aux->id);
+    }
+}
 
 
 
