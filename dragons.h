@@ -6,8 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include <time.h>
 #include <ncurses.h>
+#include <dirent.h>
 
 #define LOG {printw("IN FILE %s || IN LINE %d\n", __FILE__, __LINE__); fflush(stdout);}
 
@@ -19,7 +21,7 @@
 #define X  0
 #define Y  1
 #define MAX_PLAYERS 8
-#define SELEC_MAX   16
+#define SELEC_MAX   17
 #define ITEMS       1
 #define WEP_AR      2
 #define NAME_SIZE   100
@@ -62,6 +64,11 @@
 
 #define GOLD_START 30
 
+typedef struct SAVE_FILE{
+    char name[NAME_SIZE+1];
+    struct SAVE_FILE *next;
+}SAVE_FILE;
+
 typedef struct ITEM{
     char name[NAME_SIZE+1];
     int id;
@@ -92,7 +99,6 @@ typedef struct RACE{
 typedef struct CLASS{
   char name[ITEM_SIZE+1];
   int base_stats[STAT_NUMBER];
-  int level_up[STAT_NUMBER];
   int base_hp, base_ap, base_ac;
   int start_gear[10];
   int start_gear_size;
@@ -125,6 +131,9 @@ typedef struct GAME{
   RACE *race_info;
   ITEM *item, *weapon_armor, *special, *warning;
 }GAME;
+
+int check_save(char name[]);
+char* select_game();
 
 int power(int base, int exp);
 PLAYER* new_player_list(GAME game);
@@ -172,6 +181,7 @@ void change_item(PLAYER *pla, GAME game);
 void dice_roll();
 void add_warning(GAME game, int *count);
 void remove_warn(GAME game, int *count);
+void change_class(GAME game);
 
 void print_opt(int pos);
 void print_debuff(int pos);

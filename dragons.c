@@ -1,5 +1,118 @@
 #include "dragons.h"
 
+char* skills[STAT_NUMBER] = {"Str", "Dex", "Con", "Int", "Wis", "Cha"};
+
+int check_save(char name[])
+{
+    DIR *dir;
+    struct dirent *ent;
+    int i = 0;
+
+    if((dir = opendir("./Games")) != NULL){
+        while((ent = readdir(dir)) != NULL){
+            if(!strcmp(name, ent->d_name)){i = 1; break;}
+        }
+        closedir(dir);
+    }
+
+    return i;
+}
+
+char* select_game()
+{
+    SAVE_FILE *list = (SAVE_FILE*)malloc(sizeof(SAVE_FILE)), *aux;
+    DIR *dir;
+    struct dirent *ent;
+    char *send = (char*)malloc(sizeof(char)*(NAME_SIZE+1));
+    int c = 0, pos = 0, key, end = 1;
+
+    aux = list;
+    if((dir = opendir("./Games")) != NULL){
+        while((ent = readdir(dir)) != NULL){
+            if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) continue;
+            aux->next = (SAVE_FILE*)malloc(sizeof(SAVE_FILE));
+            aux = aux->next;
+            strcpy(aux->name, ent->d_name);
+            ++c;
+        }
+        closedir(dir);
+    }
+    else{
+        printw("\nSomething went wrong.\n");
+        WAIT
+        exit(-500);
+    }
+
+    if(!c){
+        CLEAR
+        printw("\n\nNo games to load, starting new game.");
+        WAIT
+        return NULL;
+    }
+
+    do{
+        CLEAR
+        aux = list;
+        attron(A_UNDERLINE);
+        printw("Select saved game:");
+        attroff(A_UNDERLINE);
+        for(int i = 0; i < c; ++i){
+            aux = aux->next;
+            if(i == pos) attron(A_STANDOUT);
+            printw("\n%s", aux->name);
+            if(i == pos){attroff(A_STANDOUT); printw(" <");}
+        }
+        if(pos == c) attron(A_STANDOUT);
+        printw("\n\nNew Game");
+        if(pos == c){attroff(A_STANDOUT); printw(" <");}
+
+        do{
+            key = getch();
+        }while(key != KEY_UP && key != KEY_DOWN && key != 10);
+
+        switch(key){
+            case KEY_UP:{
+                if(!pos) pos = c;
+                else --pos;
+                break;
+            }
+            case KEY_DOWN:{
+                if(pos == c) pos = 0;
+                else ++pos;
+                break;
+            }
+            case 10:{
+                end = 0;
+                break;
+            }
+        }
+
+    }while(end);
+
+    if(pos == c){
+        return NULL;
+    }
+
+    aux = list->next;
+    for(int i = 0; i < pos; ++i){
+        aux = aux->next;
+    }
+
+    strcpy(send, "Games/");
+    strcat(send, aux->name);
+
+    while(list != NULL){
+        aux = list;
+        list = list->next;
+        free(aux);
+    }
+
+    return send;
+}
+
+
+
+
 int power(int base, int exp)
 {
     if(exp > 0) return base*power(base, exp-1);
@@ -22,8 +135,10 @@ PLAYER* new_player_list(GAME game)
         aux_c = game.class_info;
         aux_r = game.race_info;
 
-        printw("Enter the name of player %d: ", i+1);
+        printw("\nEnter the name of player %d: ", i+1);
+        echo();
         getstr(aux->name);
+        noecho();
 
         aux->kol = GOLD_START;
         //aux->status = BLEED; aux->lvl = aux->buff = aux->exp = 0;
@@ -239,11 +354,6 @@ CLASS* class_list(int *class_num)
             fscanf(fp, " %d", &(aux->base_stats[stat]));
         }while(fgetc(fp) != '\n');
 
-        for(int k = 0; k < STAT_NUMBER; ++k){
-            fscanf(fp, " %d %d", &stat, &(aux->level_up[k]));
-            fgetc(fp);
-        }
-
         fscanf(fp, "%d, %d, %d", &(aux->base_hp), &(aux->base_ap), &(aux->base_ac));
         fgetc(fp);
         j = 0;
@@ -272,8 +382,6 @@ void list_class_info(CLASS *list, int pos)
         if(i == pos){attroff(A_STANDOUT); printw(" <");}
         printw("\nBase Stats: St = %d, De = %d, Co = %d, ", list->base_stats[0], list->base_stats[1], list->base_stats[2]);
         printw("In = %d, Wi = %d, Ch = %d\n", list->base_stats[3], list->base_stats[4], list->base_stats[5]);
-        printw("Level Up: St = %d, De = %d, Co = %d, ", list->level_up[0], list->level_up[1], list->level_up[2]);
-        printw("In = %d, Wi = %d, Ch = %d\n", list->level_up[3], list->level_up[4], list->level_up[5]);
         printw("Base HP = %d, Base AP = %d\n\n", list->base_hp, list->base_ap);
     }
 }
@@ -423,7 +531,7 @@ void save_game(GAME game, int first)
         }
     }*/
 
-    fp = fopen("Games/Current.dnd", "w");
+    fp = fopen(game.game_name, "w");
 
     fprintf(fp, "%d %d %d\n", game.round, game.play_num, game.warn_count);
 
@@ -469,16 +577,21 @@ void save_game(GAME game, int first)
 GAME load_game()
 {
     GAME game;
-    FILE *fp = fopen("Games/Current.dnd", "r");
+    FILE *fp;
     PLAYER *aux;
     ITEM *aux_w;
     int pos_r, pos_c, bf, st, j = 0;
+    char *file_name;
 
-    if(fp == NULL){
-        printw("No game to load. Starting new game . . .\n");
+    file_name = select_game();
+
+    if(file_name == NULL){
         game = new_game();
     }
     else{
+        fp = fopen(file_name, "r");
+        strcpy(game.game_name, file_name);
+        free(file_name);
 
         game.item = item_list(&(game.item_num), 1);
         game.weapon_armor = item_list(&(game.weapon_num), 2);
@@ -607,7 +720,8 @@ GAME load_game()
 GAME new_game()
 {
     GAME game;
-    int end = 1, pos;
+    int end = 1, end2, pos, key;
+    char name[NAME_SIZE+1];
 
     game.item = item_list(&(game.item_num), 1);
     game.weapon_armor = item_list(&(game.weapon_num), 2);
@@ -618,6 +732,45 @@ GAME new_game()
     game.warning->next = NULL;
     game.play_num = game.round = 1; game.warn_count = 0;
 
+    do{
+        CLEAR
+        printw("\nName of the new game: ");
+        echo();
+        getstr(name);
+        noecho();
+
+        strcat(name, ".dnd");
+
+        if(check_save(name)){
+            pos = 0; end2 = 1;
+            do{
+                CLEAR
+                printw("\nSaved game already exists. Overwrite?");
+
+                if(!pos) attron(A_STANDOUT);
+                printw("\n\nYes");
+                if(!pos){attroff(A_STANDOUT); printw(" <");}
+                if(pos) attron(A_STANDOUT);
+                printw("\nNo");
+                if(pos){attroff(A_STANDOUT); printw(" <");}
+                printw("\n");
+
+                do{
+                    key = getch();
+                }while(key != KEY_UP && key != KEY_DOWN && key != 10);
+
+                if(key == KEY_UP || key == KEY_DOWN) pos = pos^0b1;
+                else end2 = 0;
+            }while(end2);
+            if(!pos) end = 0;
+        }
+        else end = 0;
+    }while(end);
+
+    strcpy(game.game_name, "Games/");
+    strcat(game.game_name, name);
+
+    end = 1;
     do{
         CLEAR
         printw("\nInput the number of players: < %d >", game.play_num);
@@ -808,6 +961,7 @@ void game_show()
                     case 13:{dice_roll(); break;}
                     case 14:{add_warning(game, &(game.warn_count)); break;}
                     case 15:{remove_warn(game, &(game.warn_count)); break;}
+                    case 16:{change_class(game); break;}
                 }
                 save_game(game, 0);
                 break;
@@ -1396,26 +1550,51 @@ int level_exp(int level)
 
 void lvl_up(PLAYER *p, int l, int level)
 {
-    int hp, ap;
-
-    for(int i = 0; i < STAT_NUMBER; ++i){
-        if(!(p->lvl % p->classe->level_up[i])){
-            p->stats[i]++;
-        }
-    }
+    int hp, ap, key, pos, end = 1;
 
     hp = (rand()%p->classe->base_hp)+1;
     ap = (rand()%p->classe->base_ap)+1;
 
-    CLEAR
+    pos = 0;
+    do{
+        CLEAR
+        printw("\nPlayer %s leveled up! Gained %d HP and %d AP.\n", p->name, hp, ap);
+        printw("\nSelect stat you wish to improve:\n");
+        for(int i = 0; i < STAT_NUMBER; ++i){
+            if(i == pos) attron(A_STANDOUT);
+            printw("\n%s", skills[i]);
+            if(i == pos){attroff(A_STANDOUT); printw(" <");}
+        }
+        printw("\n");
 
-    printw("Player %s leveled up! Gained %d HP and %d AP.\n", p->name, hp, ap);
-    WAIT
+        do{
+            key = getch();
+        }while(key != KEY_UP && key != KEY_DOWN && key != 10);
+
+        switch(key){
+            case KEY_UP:{
+                if(!pos) pos = STAT_NUMBER-1;
+                else --pos;
+                break;
+            }
+            case KEY_DOWN:{
+                if(pos == STAT_NUMBER-1) pos = 0;
+                else ++pos;
+                break;
+            }
+            case 10:{
+                end = 0;
+                break;
+            }
+        }
+
+    }while(end);
 
     p->max_hp += hp;
     p->max_ap += ap;
     p->hp = p->max_hp;
     p->ap = p->max_ap;
+    ++p->stats[pos];
 
     p->status = 0;
 }
@@ -2213,6 +2392,94 @@ void remove_warn(GAME game, int *count)
     free(aux);
 }
 
+void change_class(GAME game)
+{
+    int key, pos = 1, end = 1;
+    PLAYER *aux;
+    CLASS *aux_c;
+
+    do{
+        CLEAR
+        aux = game.player_list;
+        for(int k = 1; k <= game.play_num; ++k){
+            aux = aux->next;
+            if(k == pos) attron(A_STANDOUT);
+            printw("\nPlayer %d: %s; Class %s", k, aux->name, aux->classe->name);
+            if(k == pos){attroff(A_STANDOUT); printw(" <");}
+        }
+        addch('\n');
+        move(game.win[X]-2, game.win[Y]-2);
+        refresh();
+        do{
+            key = getch();
+        }while(key != 10 && key != KEY_UP && key != KEY_DOWN && key != 27);
+        switch (key) {
+            case KEY_UP:{
+                if(pos == 1) pos = game.play_num;
+                else --pos;
+                break;
+            }
+            case KEY_DOWN:{
+                if(pos == game.play_num) pos = 1;
+                else ++pos;
+                break;
+            }
+            case 27:{return;break;}
+            default:{end = 0; break;}
+        }
+    }while(end);
+
+    aux = game.player_list;
+    for(int i = 0; i < pos; ++i){
+        aux = aux->next;
+    }
+
+    end = pos = 1;
+    do{
+        CLEAR
+        printw("\nChoose a new class:");
+        list_class_info(game.class_info, pos);
+        refresh();
+
+        do{
+            key = getch();
+        }while(key != KEY_UP && key != KEY_DOWN && key != 10 && key != 27);
+
+        switch (key) {
+            case KEY_UP:{
+                if(pos == 1) pos = game.class_num;
+                else --pos;
+                break;
+            }
+            case KEY_DOWN:{
+                if(pos == game.class_num) pos = 1;
+                else ++pos;
+                break;
+            }
+            case 10:{
+                end = 0;
+                break;
+            }
+            case 27:{
+                return;
+                break;
+            }
+        }
+    }while(end);
+
+    aux_c = game.class_info;
+    for(int i = 0; i < pos; ++i){
+        aux_c = aux_c->next;
+    }
+
+    if(aux_c->pos == aux->classe->pos) return;
+    for(int i = 0; i < STAT_NUMBER; ++i){
+        aux->stats[i] = aux->stats[i] - aux->classe->base_stats[i] + aux_c->base_stats[i];
+    }
+    aux->classe = aux_c;
+}
+
+
 
 void print_opt(int pos)
 {
@@ -2264,7 +2531,10 @@ void print_opt(int pos)
     if(pos == 14){attroff(A_STANDOUT); printw(" <");}
     if(pos == 15) attron(A_STANDOUT);
     move(41, 30); printw("Remove message");
-    if(pos == 15) attroff(A_STANDOUT);
+    if(pos == 15){attroff(A_STANDOUT); printw(" <");}
+    if(pos == 16) attron(A_STANDOUT);
+    move(42, 30); printw("Change class");
+    if(pos == 16){attroff(A_STANDOUT); printw(" <");}
 }
 
 void print_debuff(int pos)
