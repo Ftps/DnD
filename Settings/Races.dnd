@@ -1,4 +1,4 @@
-6
+8
 
 Name: Dwarf
 0 2, 1 -3, 2 2, 4 1, 5 -1
@@ -10,7 +10,7 @@ Special: Light Feet
 
 Name: Human
 0 1, 1 -2, 2 -2, 3 1, 4 2, 5 1
-Special: ????
+Special: Jack of All Trades
 
 Name: Orc
 0 3, 2 2, 3 -1, 4 -1, 5 -2
@@ -27,3 +27,7 @@ Special: Mind Whisper
 Name: Wood_Elf
 0 -2, 1 -2, 3 1, 4 3, 5 1
 Special: Natural Protection
+
+Name: Lizardman
+0 2, 1 -2, 2 1, 3 -1, 4 2, 5 -1
+Special: Acidic Fluids

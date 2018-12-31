@@ -86,7 +86,6 @@ char* select_game()
                 break;
             }
         }
-
     }while(end);
 
     if(pos == c){
@@ -106,7 +105,6 @@ char* select_game()
         list = list->next;
         free(aux);
     }
-
     return send;
 }
 
@@ -237,6 +235,41 @@ PLAYER* new_player_list(GAME game)
             add_item(aux, game.weapon_armor, 2, aux_c->start_gear[2*k], aux_c->start_gear[2*k+1]);
         }
         aux->next = NULL;
+
+        pos = 0; end = 1;
+        do{
+            CLEAR
+            printw("\nSelect stat you wish to improve:\n");
+            for(int i = 0; i < STAT_NUMBER; ++i){
+                if(i == pos) attron(A_STANDOUT);
+                printw("\n%s", skills[i]);
+                if(i == pos){attroff(A_STANDOUT); printw(" <");}
+            }
+            printw("\n");
+
+            do{
+                j = getch();
+            }while(j != KEY_UP && j != KEY_DOWN && j != 10);
+
+            switch(j){
+                case KEY_UP:{
+                    if(!pos) pos = STAT_NUMBER-1;
+                    else --pos;
+                    break;
+                }
+                case KEY_DOWN:{
+                    if(pos == STAT_NUMBER-1) pos = 0;
+                    else ++pos;
+                    break;
+                }
+                case 10:{
+                    end = 0;
+                    break;
+                }
+            }
+
+        }while(end);
+        ++aux->stats[pos];
       }
       return list;
 }
@@ -251,17 +284,27 @@ void list_players(PLAYER *list)
         list = list->next;
 
         if(i < 5) y = 0;
-        else y = 48;
+        else if(i < 9) y = 48;
+        else if(i < 13) y = 96;
+        else y = 96+48;
 
         switch (i) {
             case 1:
-            case 5:{x = 5; break;}
+            case 5:
+            case 9:
+            case 13:{x = 5; break;}
             case 2:
-            case 6:{x = 13; break;}
+            case 6:
+            case 10:
+            case 14:{x = 13; break;}
             case 3:
-            case 7:{x = 21; break;}
+            case 7:
+            case 11:
+            case 15:{x = 21; break;}
             case 4:
-            case 8:{x = 29; break;}
+            case 8:
+            case 12:
+            case 16:{x = 29; break;}
         }
 
         mvprintw(x, y, "Player %d:", i); ++x;
@@ -307,6 +350,7 @@ void print_status(PLAYER *pla, int x, int y)
         if(pla->status & BLIND)  printw("Blind, ");
         if(pla->status & BESERK) printw("Beserk, ");
         if(pla->status & TIKI)   printw("Tiki, ");
+        if(pla->status & COLD)   printw("Cold, ");
         attroff(COLOR_PAIR(1));
     }
     ++x;
@@ -606,7 +650,6 @@ GAME load_game()
         fscanf(fp, "%d %d %d", &(game.round), &(game.play_num), &(game.warn_count));
 
         for(int i = 0; i < game.play_num; ++i, j = 0){
-
             aux->next = (PLAYER*)malloc(sizeof(PLAYER));
             aux = aux->next;
             aux->next = NULL;
@@ -698,7 +741,6 @@ GAME load_game()
             }while(fgetc(fp) != '\n');
 
         }
-
         aux_w = game.warning; j = 0;
         for(int i = 0; i < game.warn_count; ++i, j = 0){
             aux_w->next = (ITEM*)malloc(sizeof(ITEM));
@@ -773,7 +815,7 @@ GAME new_game()
     end = 1;
     do{
         CLEAR
-        printw("\nInput the number of players: < %d >", game.play_num);
+        printw("\nInput the number of players (max = %d): < %02d >", MAX_PLAYERS, game.play_num);
         move(game.win[X]-1, game.win[Y]-1);
         do{
             pos = getch();
@@ -946,24 +988,20 @@ void game_show()
                     case 9:{
                         ++game.round;
                         if(!end_round(game, &(game.warn_count))){
-                            CLEAR
-                            printw("Round %d\n\n", game.round);
-                            list_players(game.player_list);
-                            printw("\nAll players are dead, game over!\n");
-                            WAIT
+                            kill_game(game);
                             end = 0;
                         }
                         break;
                     }
                     case 10:{revive(game); break;}
                     case 11:{ac_change(game); break;}
-                    case 12:{end = 0; break;}
-                    case 13:{dice_roll(); break;}
-                    case 14:{add_warning(game, &(game.warn_count)); break;}
-                    case 15:{remove_warn(game, &(game.warn_count)); break;}
-                    case 16:{change_class(game); break;}
+                    case 12:{dice_roll(); break;}
+                    case 13:{add_warning(game, &(game.warn_count)); break;}
+                    case 14:{remove_warn(game, &(game.warn_count)); break;}
+                    case 15:{change_class(game); break;}
+                    case 16:{end = 0; save_game(game, 0); break;}
                 }
-                save_game(game, 0);
+                if(end) save_game(game, 0);
                 break;
             }
         }
@@ -1531,8 +1569,11 @@ void add_xp(PLAYER *list, int pla, int xp, int kol, int real)
         WAIT
         return;
     }
+
     list->exp += xp;
-    list->kol += kol;
+    if(!strcmp(list->race->special, "Gold Fingers")) list->kol += kol*3/2;
+    else list->kol += kol;
+
     do{
         if(list->exp >= level_exp(list->lvl)){
             ++list->lvl;
@@ -1958,20 +1999,19 @@ int end_round(GAME game, int *count)
         list = list->next;
         if(list->status & DEAD) continue;
         ++k;
-        if(list->status & FIRE) list->hp -= 3;
-        if(list->status & POISON) list->hp -= 2;
-        if(list->status & BLEED) --list->hp;
+        if(list->status & FIRE) list->hp -= FIRE_DAM;
+        if(list->status & POISON) list->hp -= POISON_DAM;
+        if(list->status & BLEED) list->hp -= BLEED_DAM;
         if(list->buff & REGEN){
-            h = 2;
-            if(list->hp >= list->max_hp - h) list->hp = list->max_hp;
-            else list->hp += h;
+            if(list->hp >= list->max_hp - REGEN_H) list->hp = list->max_hp;
+            else list->hp += REGEN_H;
         }
 
         if(list->hp <= HP_D){inflict_death(list); --k; continue;}
-        else if(list->hp <= 0 && !(list->status & UNCON)) list->status += UNCON;
-        else if(list->hp > 0  && list->status & UNCON) list->status -= UNCON;
+        else if(list->hp <= HP_U && !(list->status & UNCON)) list->status += UNCON;
+        else if(list->hp > HP_U  && list->status & UNCON) list->status -= UNCON;
 
-        if(!(list->status & UNCON)){
+        if(!(list->status & UNCON) && !(list->status & COLD)){
             h = (rand()%2 + 1);
             if(list->ap >= list->max_ap - h) list->ap = list->max_ap;
             else list->ap += h;
@@ -2018,7 +2058,6 @@ int end_round(GAME game, int *count)
                 if(h){
                     CLEAR
                     printw("\nSomething went wrong\n");
-                    LOG
                     refresh();
                     exit(-1);
                 }
@@ -2389,6 +2428,7 @@ void remove_warn(GAME game, int *count)
     }
     aux = game.warning->next;
     game.warning->next = aux->next;
+    --*count;
     free(aux);
 }
 
@@ -2479,6 +2519,21 @@ void change_class(GAME game)
     aux->classe = aux_c;
 }
 
+void kill_game(GAME game)
+{
+    char kill_file[NAME_SIZE+7];
+
+    CLEAR
+    printw("Round %d\n\n", game.round);
+    list_players(game.player_list);
+    printw("\nAll players are dead, game over!\n");
+    WAIT
+
+    sprintf(kill_file, "rm -r %s", game.game_name);
+    system(kill_file);
+}
+
+
 
 
 void print_opt(int pos)
@@ -2520,20 +2575,19 @@ void print_opt(int pos)
     printw("\nChange AC");
     if(pos == 11){attroff(A_STANDOUT); printw(" <");}
     if(pos == 12) attron(A_STANDOUT);
-    printw("\nSave and Quit");
+    printw("\nRoll dice");
     if(pos == 12){attroff(A_STANDOUT); printw(" <");}
-    addch('\n');
     if(pos == 13) attron(A_STANDOUT);
-    move(39, 30); printw("Roll dice");
+    printw("\nAdd message");
     if(pos == 13){attroff(A_STANDOUT); printw(" <");}
     if(pos == 14) attron(A_STANDOUT);
-    move(40, 30); printw("Add message");
+    printw("\nRemove message");
     if(pos == 14){attroff(A_STANDOUT); printw(" <");}
     if(pos == 15) attron(A_STANDOUT);
-    move(41, 30); printw("Remove message");
+    printw("\nChange class");
     if(pos == 15){attroff(A_STANDOUT); printw(" <");}
     if(pos == 16) attron(A_STANDOUT);
-    move(42, 30); printw("Change class");
+    printw("\nSave and Quit");
     if(pos == 16){attroff(A_STANDOUT); printw(" <");}
 }
 
@@ -2570,6 +2624,9 @@ void print_debuff(int pos)
     if(pos == 8) attron(A_STANDOUT);
     printw("\nFire");
     if(pos == 8){attroff(A_STANDOUT); printw(" <");}
+    if(pos == 9) attron(A_STANDOUT);
+    printw("\nCold");
+    if(pos == 9){attroff(A_STANDOUT); printw(" <");}
     addch('\n');
     refresh();
 }
@@ -2628,9 +2685,9 @@ void print_warnings(GAME game)
     printw("Messages:");
     attroff(A_UNDERLINE);
 
-    for(int i = 39; aux->next != NULL && i < 58; ++i){
+    for(int i = 0; aux->next != NULL && i < 76; ++i){
         aux = aux->next;
-        move(i, 60);
+        move(i%19 + 39, 60 + NAME_SIZE*(i/19));
         printw("%s - rounds: %d", aux->name, aux->id);
     }
 }

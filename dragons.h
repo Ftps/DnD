@@ -11,7 +11,7 @@
 #include <ncurses.h>
 #include <dirent.h>
 
-#define LOG {printw("IN FILE %s || IN LINE %d\n", __FILE__, __LINE__); fflush(stdout);}
+#define LOG {printw("\nIN FILE %s || IN LINE %d", __FILE__, __LINE__); fflush(stdout);}
 
 #define CLEAR   {clear(); printw("****  Dungeons & Dragons  ****\n\n");}
 #define CLEAR_f {clear();}
@@ -20,11 +20,11 @@
 
 #define X  0
 #define Y  1
-#define MAX_PLAYERS 8
+#define MAX_PLAYERS 16
 #define SELEC_MAX   17
 #define ITEMS       1
 #define WEP_AR      2
-#define NAME_SIZE   100
+#define NAME_SIZE   50
 #define ITEM_SIZE   20
 #define STAT_NUMBER 6
 #define ST 0
@@ -35,23 +35,24 @@
 #define CH 5
 
 #define HP_D    -5
+#define HP_U    0
 #define MAX_AC  9
-#define MAX_DB  10
+#define MAX_DB  11
 #define MAX_BF  5
 #define NONE    0b000000000
 
 // DEBUFFS
-#define DEAD    0b0000000001
-#define UNCON   0b0000000010
-#define POISON  0b0000000100
-#define BLEED   0b0000001000
-#define BLIND   0b0000010000
-#define SILEN   0b0000100000
-#define STONED  0b0001000000
-#define BESERK  0b0010000000
-#define FIRE    0b0100000000
-#define TIKI    0b1000000000
-
+#define DEAD    0b00000000001
+#define UNCON   0b00000000010
+#define POISON  0b00000000100
+#define BLEED   0b00000001000
+#define BLIND   0b00000010000
+#define SILEN   0b00000100000
+#define STONED  0b00001000000
+#define BESERK  0b00010000000
+#define FIRE    0b00100000000
+#define COLD    0b01000000000
+#define TIKI    0b10000000000
 
 #define TIKI_ROUND 50
 
@@ -61,6 +62,12 @@
 #define PROTECT 0b000000100
 #define FAST    0b000001000
 #define INVIS   0b000100000
+
+// BUFF AND DEBUFF DAMAGE
+#define FIRE_DAM 3
+#define POISON_DAM 2
+#define BLEED_DAM 1
+#define REGEN_H 1
 
 #define GOLD_START 30
 
@@ -91,7 +98,7 @@ typedef struct STATUS{
 typedef struct RACE{
   char name[ITEM_SIZE+1];
   int base_stats[STAT_NUMBER];
-  char special[30+1];
+  char special[NAME_SIZE+1];
   struct RACE *next;
   int pos;
 }RACE;
@@ -182,6 +189,7 @@ void dice_roll();
 void add_warning(GAME game, int *count);
 void remove_warn(GAME game, int *count);
 void change_class(GAME game);
+void kill_game(GAME game);
 
 void print_opt(int pos);
 void print_debuff(int pos);
