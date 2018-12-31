@@ -270,6 +270,43 @@ PLAYER* new_player_list(GAME game)
 
         }while(end);
         ++aux->stats[pos];
+        if(!strcmp(aux->race->special, "Jack of All Trades")){
+            pos = 0; end = 1;
+            do{
+                CLEAR
+                printw("\nJACK OF ALL TRADES\n");
+                printw("\nSelect stat you wish to improve:\n");
+                for(int i = 0; i < STAT_NUMBER; ++i){
+                    if(i == pos) attron(A_STANDOUT);
+                    printw("\n%s", skills[i]);
+                    if(i == pos){attroff(A_STANDOUT); printw(" <");}
+                }
+                printw("\n");
+
+                do{
+                    j = getch();
+                }while(j != KEY_UP && j != KEY_DOWN && j != 10);
+
+                switch(j){
+                    case KEY_UP:{
+                        if(!pos) pos = STAT_NUMBER-1;
+                        else --pos;
+                        break;
+                    }
+                    case KEY_DOWN:{
+                        if(pos == STAT_NUMBER-1) pos = 0;
+                        else ++pos;
+                        break;
+                    }
+                    case 10:{
+                        end = 0;
+                        break;
+                    }
+                }
+
+            }while(end);
+            ++aux->stats[pos];
+        }
       }
       return list;
 }
